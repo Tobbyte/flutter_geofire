@@ -1,10 +1,3 @@
-## 2.0.7
-
-* Added GeoQueryDataEventListener feature
-* New method: `queryAtLocationWithData()` to get full Firebase data snapshot
-* New callbacks: onDataKeyEntered, onDataKeyMoved, onDataKeyExited, onDataKeyChanged
-* Improved listener cleanup to prevent conflicts when switching query types
-
 ## 2.0.6
 
 * Android issue fixed

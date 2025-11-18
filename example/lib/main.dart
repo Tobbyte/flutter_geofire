@@ -193,23 +193,6 @@ class _MyAppState extends State<MyApp> {
                   ),
                 ),
               ),
-              Padding(
-                padding: EdgeInsets.all(10.0),
-              ),
-              Center(
-                child: TextButton(
-                  onPressed: () {
-                    queryWithData();
-                  },
-                  style: TextButton.styleFrom(
-                    backgroundColor: Colors.green,
-                  ),
-                  child: Text(
-                    "Query With Data (New Feature)",
-                    style: TextStyle(color: Colors.white),
-                  ),
-                ),
-              ),
             ],
           )),
     );
@@ -251,53 +234,5 @@ class _MyAppState extends State<MyApp> {
         await Geofire.getLocation("AsH28LWk8MXfwRLfVxgx");
 
     print(response);
-  }
-
-  void queryWithData() async {
-    // Example of using the new queryAtLocationWithData feature
-    try {
-      Geofire.queryAtLocationWithData(30.730743, 76.774948, 5)?.listen((map) {
-        print("Query with data result: $map");
-        if (map != null) {
-          var callBack = map['callBack'];
-
-          switch (callBack) {
-            case Geofire.onDataKeyEntered:
-              print("Data Key Entered: ${map['key']}");
-              print("Data: ${map['data']}");
-              print("Location: ${map['latitude']}, ${map['longitude']}");
-              keysRetrieved.add(map["key"]);
-              break;
-
-            case Geofire.onDataKeyExited:
-              print("Data Key Exited: ${map['key']}");
-              print("Data: ${map['data']}");
-              keysRetrieved.remove(map["key"]);
-              break;
-
-            case Geofire.onDataKeyMoved:
-              print("Data Key Moved: ${map['key']}");
-              print("Data: ${map['data']}");
-              print("New Location: ${map['latitude']}, ${map['longitude']}");
-              break;
-
-            case Geofire.onDataKeyChanged:
-              print("Data Key Changed: ${map['key']}");
-              print("New Data: ${map['data']}");
-              break;
-
-            case Geofire.onGeoQueryReady:
-              print("Query Ready with keys: ${map['result']}");
-              break;
-          }
-
-          setState(() {});
-        }
-      }).onError((error) {
-        print("Error with data query: $error");
-      });
-    } on PlatformException catch (e) {
-      print('Failed to query with data: ${e.message}');
-    }
   }
 }
