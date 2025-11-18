@@ -112,6 +112,55 @@ GeoFire allows you to query all keys within a geographic area using GeoQuery obj
     
             setState(() {});
 
+#### Geo Queries with Data
+
+If you need access to the full Firebase data snapshot in addition to location information, use `queryAtLocationWithData`. This is similar to `addGeoQueryDataEventListener` in the original GeoFire Java library.
+
+    Geofire.queryAtLocationWithData(30.730743, 76.774948, 5).listen((map) {
+            print(map);
+            if (map != null) {
+              var callBack = map['callBack'];
+    
+              //latitude will be retrieved from map['latitude']
+              //longitude will be retrieved from map['longitude']
+              //data will be retrieved from map['data'] (full Firebase data snapshot)
+    
+              switch (callBack) {
+                case Geofire.onDataKeyEntered:
+                  var key = map["key"];
+                  var data = map["data"]; // Full Firebase data snapshot
+                  print("Key: $key entered with data: $data");
+                  break;
+    
+                case Geofire.onDataKeyExited:
+                  var key = map["key"];
+                  var data = map["data"];
+                  print("Key: $key exited with data: $data");
+                  break;
+    
+                case Geofire.onDataKeyMoved:
+                  var key = map["key"];
+                  var data = map["data"];
+                  print("Key: $key moved with data: $data");
+                  break;
+                  
+                case Geofire.onDataKeyChanged:
+                  // Only available with queryAtLocationWithData
+                  // Called when the data at a location has changed
+                  var key = map["key"];
+                  var data = map["data"];
+                  print("Data for key: $key changed: $data");
+                  break;
+    
+                case Geofire.onGeoQueryReady:
+                  // All Initial Data is loaded
+                  print(map['result']);
+                  break;
+              }
+            }
+    
+            setState(() {});
+
 #### Stop Listening to Geo Query
 To remove listeners to all queries:
 

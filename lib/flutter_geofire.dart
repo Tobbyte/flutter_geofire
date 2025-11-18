@@ -11,8 +11,15 @@ class Geofire {
   static const onGeoQueryReady = "onGeoQueryReady";
   static const onKeyMoved = "onKeyMoved";
   static const onKeyExited = "onKeyExited";
+  
+  // Data event callbacks - includes full data snapshot
+  static const onDataKeyEntered = "onDataKeyEntered";
+  static const onDataKeyMoved = "onDataKeyMoved";
+  static const onDataKeyExited = "onDataKeyExited";
+  static const onDataKeyChanged = "onDataKeyChanged";
 
   static Stream<dynamic>? _queryAtLocation;
+  static Stream<dynamic>? _queryAtLocationWithData;
 
   static Future<bool> initialize(String path) async {
     final dynamic r = await _channel
@@ -67,5 +74,20 @@ class Geofire {
       _queryAtLocation = _stream.receiveBroadcastStream();
     }
     return _queryAtLocation;
+  }
+
+  static Stream<dynamic>? queryAtLocationWithData(
+      double lat, double lng, double radius) {
+    _channel.invokeMethod('queryAtLocationWithData',
+        {"lat": lat, "lng": lng, "radius": radius}).then((result) {
+      // print("result" + result);
+    }).catchError((error) {
+      // print("Error " + error);
+    });
+
+    if (_queryAtLocationWithData == null) {
+      _queryAtLocationWithData = _stream.receiveBroadcastStream();
+    }
+    return _queryAtLocationWithData;
   }
 }

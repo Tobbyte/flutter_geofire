@@ -9,7 +9,9 @@ import com.firebase.geofire.GeoFire;
 import com.firebase.geofire.GeoLocation;
 import com.firebase.geofire.GeoQuery;
 import com.firebase.geofire.GeoQueryEventListener;
+import com.firebase.geofire.GeoQueryDataEventListener;
 import com.firebase.geofire.LocationCallback;
+import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
@@ -137,6 +139,8 @@ public class GeofirePlugin implements FlutterPlugin,MethodCallHandler, EventChan
 
         } else if (call.method.equals("queryAtLocation")) {
             geoFireArea(Double.parseDouble(call.argument("lat").toString()), Double.parseDouble(call.argument("lng").toString()), result, Double.parseDouble(call.argument("radius").toString()));
+        } else if (call.method.equals("queryAtLocationWithData")) {
+            geoFireAreaWithData(Double.parseDouble(call.argument("lat").toString()), Double.parseDouble(call.argument("lng").toString()), result, Double.parseDouble(call.argument("radius").toString()));
         } else if (call.method.equals("stopListener")) {
 
             if (geoQuery != null) {
@@ -160,6 +164,7 @@ public class GeofirePlugin implements FlutterPlugin,MethodCallHandler, EventChan
             final ArrayList<String> arrayListKeys = new ArrayList<>();
 
             if (geoQuery != null) {
+                geoQuery.removeAllListeners();
                 geoQuery.setLocation(new GeoLocation(latitude, longitude), radius);
             } else {
                 geoQuery = geoFire.queryAtLocation(new GeoLocation(latitude, longitude), radius);
@@ -222,6 +227,190 @@ public class GeofirePlugin implements FlutterPlugin,MethodCallHandler, EventChan
                 public void onGeoQueryReady() {
 //                    geoQuery.removeAllListeners();
 //                    result.success(arrayListKeys);
+
+                    if (events != null) {
+                        hashMap.clear();
+
+                        hashMap.put("callBack", "onGeoQueryReady");
+                        hashMap.put("result", arrayListKeys);
+
+                        events.success(hashMap);
+
+                    } else {
+                        geoQuery.removeAllListeners();
+                    }
+
+                }
+
+                @Override
+                public void onGeoQueryError(DatabaseError error) {
+
+                    if (events != null) {
+
+                        events.error("Error ", "GeoQueryError", error);
+                    } else {
+                        geoQuery.removeAllListeners();
+                    }
+
+
+                }
+            });
+        } catch (Exception e) {
+            e.printStackTrace();
+            result.error("Error ", "General Error", e);
+        }
+    }
+
+    private void geoFireAreaWithData(final double latitude, double longitude, final Result result, double radius) {
+        try {
+
+            final ArrayList<String> arrayListKeys = new ArrayList<>();
+
+            if (geoQuery != null) {
+                geoQuery.removeAllListeners();
+                geoQuery.setLocation(new GeoLocation(latitude, longitude), radius);
+            } else {
+                geoQuery = geoFire.queryAtLocation(new GeoLocation(latitude, longitude), radius);
+            }
+
+            geoQuery.addGeoQueryDataEventListener(new GeoQueryDataEventListener() {
+                @Override
+                public void onDataEntered(DataSnapshot dataSnapshot, GeoLocation location) {
+
+                    if (events != null) {
+                        hashMap.clear();
+                        hashMap.put("callBack", "onDataKeyEntered");
+                        hashMap.put("key", dataSnapshot.getKey());
+                        hashMap.put("latitude", location.latitude);
+                        hashMap.put("longitude", location.longitude);
+                        
+                        // Convert DataSnapshot to HashMap
+                        HashMap<String, Object> dataMap = new HashMap<>();
+                        if (dataSnapshot.getValue() != null) {
+                            try {
+                                Object value = dataSnapshot.getValue();
+                                if (value instanceof HashMap) {
+                                    dataMap = (HashMap<String, Object>) value;
+                                } else {
+                                    dataMap.put("value", value);
+                                }
+                            } catch (Exception e) {
+                                dataMap.put("value", dataSnapshot.getValue());
+                            }
+                        }
+                        hashMap.put("data", dataMap);
+                        
+                        events.success(hashMap);
+                    } else {
+                        geoQuery.removeAllListeners();
+                    }
+
+                    arrayListKeys.add(dataSnapshot.getKey());
+
+                }
+
+                @Override
+                public void onDataExited(DataSnapshot dataSnapshot) {
+                    arrayListKeys.remove(dataSnapshot.getKey());
+
+                    if (events != null) {
+
+                        hashMap.clear();
+                        hashMap.put("callBack", "onDataKeyExited");
+                        hashMap.put("key", dataSnapshot.getKey());
+                        
+                        // Convert DataSnapshot to HashMap
+                        HashMap<String, Object> dataMap = new HashMap<>();
+                        if (dataSnapshot.getValue() != null) {
+                            try {
+                                Object value = dataSnapshot.getValue();
+                                if (value instanceof HashMap) {
+                                    dataMap = (HashMap<String, Object>) value;
+                                } else {
+                                    dataMap.put("value", value);
+                                }
+                            } catch (Exception e) {
+                                dataMap.put("value", dataSnapshot.getValue());
+                            }
+                        }
+                        hashMap.put("data", dataMap);
+                        
+                        events.success(hashMap);
+                    } else {
+                        geoQuery.removeAllListeners();
+                    }
+
+                }
+
+                @Override
+                public void onDataMoved(DataSnapshot dataSnapshot, GeoLocation location) {
+
+                    if (events != null) {
+                        hashMap.clear();
+
+                        hashMap.put("callBack", "onDataKeyMoved");
+                        hashMap.put("key", dataSnapshot.getKey());
+                        hashMap.put("latitude", location.latitude);
+                        hashMap.put("longitude", location.longitude);
+
+                        // Convert DataSnapshot to HashMap
+                        HashMap<String, Object> dataMap = new HashMap<>();
+                        if (dataSnapshot.getValue() != null) {
+                            try {
+                                Object value = dataSnapshot.getValue();
+                                if (value instanceof HashMap) {
+                                    dataMap = (HashMap<String, Object>) value;
+                                } else {
+                                    dataMap.put("value", value);
+                                }
+                            } catch (Exception e) {
+                                dataMap.put("value", dataSnapshot.getValue());
+                            }
+                        }
+                        hashMap.put("data", dataMap);
+
+                        events.success(hashMap);
+                    } else {
+                        geoQuery.removeAllListeners();
+                    }
+
+                }
+
+                @Override
+                public void onDataChanged(DataSnapshot dataSnapshot, GeoLocation location) {
+                    // Called when the data at a location has changed
+                    if (events != null) {
+                        hashMap.clear();
+
+                        hashMap.put("callBack", "onDataKeyChanged");
+                        hashMap.put("key", dataSnapshot.getKey());
+                        hashMap.put("latitude", location.latitude);
+                        hashMap.put("longitude", location.longitude);
+
+                        // Convert DataSnapshot to HashMap
+                        HashMap<String, Object> dataMap = new HashMap<>();
+                        if (dataSnapshot.getValue() != null) {
+                            try {
+                                Object value = dataSnapshot.getValue();
+                                if (value instanceof HashMap) {
+                                    dataMap = (HashMap<String, Object>) value;
+                                } else {
+                                    dataMap.put("value", value);
+                                }
+                            } catch (Exception e) {
+                                dataMap.put("value", dataSnapshot.getValue());
+                            }
+                        }
+                        hashMap.put("data", dataMap);
+
+                        events.success(hashMap);
+                    } else {
+                        geoQuery.removeAllListeners();
+                    }
+                }
+
+                @Override
+                public void onGeoQueryReady() {
 
                     if (events != null) {
                         hashMap.clear();
