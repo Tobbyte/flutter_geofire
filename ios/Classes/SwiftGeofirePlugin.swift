@@ -191,6 +191,102 @@ public class SwiftGeofirePlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
         }
     }
     
+    if(call.method.elementsEqual("queryAtLocationWithData")){
+        
+        
+        let lat = arguements!["lat"] as! Double
+        let lng = arguements!["lng"] as! Double
+        let radius = arguements!["radius"] as! Double
+        
+        
+        let location:CLLocation = CLLocation(latitude: CLLocationDegrees(lat), longitude: CLLocationDegrees(lng))
+        
+        circleQuery = geoFire?.query(at: location, withRadius: radius)
+        
+        _ = circleQuery?.observeEventType(.keyEntered, with: { (parkingKey, location, snapshot) in
+            
+            var param=[String:Any]()
+            
+            param["callBack"] = "onDataKeyEntered"
+            param["key"] = parkingKey
+            param["latitude"] = location.coordinate.latitude
+            param["longitude"] = location.coordinate.longitude
+            
+            // Convert snapshot to dictionary
+            if let snapshotValue = snapshot.value as? [String: Any] {
+                param["data"] = snapshotValue
+            } else if let snapshotValue = snapshot.value {
+                param["data"] = ["value": snapshotValue]
+            } else {
+                param["data"] = [String: Any]()
+            }
+            
+            key.append(parkingKey)
+            print("Key is \(parkingKey)")
+            
+            self.eventSink!(param)
+            
+        })
+        
+        _ = circleQuery?.observeEventType(.keyMoved, with: { (parkingKey, location, snapshot) in
+            
+            var param=[String:Any]()
+            
+            param["callBack"] = "onDataKeyMoved"
+            param["key"] = parkingKey
+            param["latitude"] = location.coordinate.latitude
+            param["longitude"] = location.coordinate.longitude
+            
+            // Convert snapshot to dictionary
+            if let snapshotValue = snapshot.value as? [String: Any] {
+                param["data"] = snapshotValue
+            } else if let snapshotValue = snapshot.value {
+                param["data"] = ["value": snapshotValue]
+            } else {
+                param["data"] = [String: Any]()
+            }
+            
+            key.append(parkingKey)
+            print("Key is \(parkingKey)")
+            
+            self.eventSink!(param)
+            
+        })
+        
+        _ = circleQuery?.observeEventType(.keyExited, with: { (parkingKey, location, snapshot) in
+            
+            var param=[String:Any]()
+            
+            param["callBack"] = "onDataKeyExited"
+            param["key"] = parkingKey
+            param["latitude"] = location.coordinate.latitude
+            param["longitude"] = location.coordinate.longitude
+            
+            // Convert snapshot to dictionary
+            if let snapshotValue = snapshot.value as? [String: Any] {
+                param["data"] = snapshotValue
+            } else if let snapshotValue = snapshot.value {
+                param["data"] = ["value": snapshotValue]
+            } else {
+                param["data"] = [String: Any]()
+            }
+            
+            self.eventSink!(param)
+            
+        })
+        
+        
+        circleQuery?.observeReady {
+            
+            var param=[String:Any]()
+            
+            param["callBack"] = "onGeoQueryReady"
+            param["result"] = key
+            self.eventSink!(param)
+            
+        }
+    }
+    
   }
 
 
