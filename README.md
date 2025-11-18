@@ -168,6 +168,19 @@ To remove listeners to all queries:
 
     print(response);
 
+#### Remove Specific Listeners
+You can remove specific event listeners instead of all listeners:
+
+    // Remove only the GeoQueryEventListener (from queryAtLocation)
+    bool response = await Geofire.removeGeoQueryEventListener();
+    
+    print(response);
+    
+    // Remove only the GeoQueryDataEventListener (from queryAtLocationWithData)
+    bool response = await Geofire.removeGeoQueryDataEventListener();
+    
+    print(response);
+
 ## Removing a location
 To remove a location and delete it from the database simply pass the location's key to removeLocation:
 

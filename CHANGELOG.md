@@ -3,7 +3,9 @@
 * Added GeoQueryDataEventListener feature
 * New method: `queryAtLocationWithData()` to get full Firebase data snapshot
 * New callbacks: onDataKeyEntered, onDataKeyMoved, onDataKeyExited, onDataKeyChanged
-* Improved listener cleanup to prevent conflicts when switching query types
+* Added selective listener removal methods: `removeGeoQueryEventListener()` and `removeGeoQueryDataEventListener()`
+* Improved listener cleanup - can now remove specific listeners instead of only all listeners
+* Matches GeoFire Java API behavior for listener management
 
 ## 2.0.6
 

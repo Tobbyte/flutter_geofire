@@ -10,6 +10,10 @@ public class SwiftGeofirePlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
     var geoFire:GeoFire?
     private var eventSink: FlutterEventSink?
     var circleQuery : GFCircleQuery?
+    
+    // Store observer handles for selective removal
+    var currentObserverHandles: [FirebaseHandle] = []
+    var isDataQuery: Bool = false
 
     
   public static func register(with registrar: FlutterPluginRegistrar) {
@@ -84,6 +88,34 @@ public class SwiftGeofirePlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
     else if(call.method.elementsEqual("stopListener")){
         
         circleQuery?.removeAllObservers()
+        currentObserverHandles.removeAll()
+        isDataQuery = false
+        
+        result(true);
+        
+    }
+    
+    else if(call.method.elementsEqual("removeGeoQueryEventListener")){
+        
+        if !isDataQuery {
+            for handle in currentObserverHandles {
+                circleQuery?.removeObserver(withFirebaseHandle: handle)
+            }
+            currentObserverHandles.removeAll()
+        }
+        
+        result(true);
+        
+    }
+    
+    else if(call.method.elementsEqual("removeGeoQueryDataEventListener")){
+        
+        if isDataQuery {
+            for handle in currentObserverHandles {
+                circleQuery?.removeObserver(withFirebaseHandle: handle)
+            }
+            currentObserverHandles.removeAll()
+        }
         
         result(true);
         
@@ -132,12 +164,21 @@ public class SwiftGeofirePlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
         
         let location:CLLocation = CLLocation(latitude: CLLocationDegrees(lat), longitude: CLLocationDegrees(lng))
         
-        // Remove all existing observers before setting up new ones
-        circleQuery?.removeAllObservers()
+        // Remove only event query observers if they exist
+        if !isDataQuery {
+            for handle in currentObserverHandles {
+                circleQuery?.removeObserver(withFirebaseHandle: handle)
+            }
+        } else {
+            // If switching from data query to event query, remove all
+            circleQuery?.removeAllObservers()
+        }
+        currentObserverHandles.removeAll()
+        isDataQuery = false
         
         circleQuery = geoFire?.query(at: location, withRadius: radius)
         
-        _ = circleQuery?.observe(.keyEntered, with: { (parkingKey, location) in
+        let handle1 = circleQuery?.observe(.keyEntered, with: { (parkingKey, location) in
             
             var param=[String:Any]()
             
@@ -152,8 +193,11 @@ public class SwiftGeofirePlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
             self.eventSink!(param)
             
         })
+        if let h = handle1 {
+            currentObserverHandles.append(h)
+        }
         
-        _ = circleQuery?.observe(.keyMoved, with: { (parkingKey, location) in
+        let handle2 = circleQuery?.observe(.keyMoved, with: { (parkingKey, location) in
             
             var param=[String:Any]()
             
@@ -168,8 +212,11 @@ public class SwiftGeofirePlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
             self.eventSink!(param)
             
         })
+        if let h = handle2 {
+            currentObserverHandles.append(h)
+        }
         
-        _ = circleQuery?.observe(.keyExited, with: { (parkingKey, location) in
+        let handle3 = circleQuery?.observe(.keyExited, with: { (parkingKey, location) in
             
             var param=[String:Any]()
             
@@ -181,6 +228,9 @@ public class SwiftGeofirePlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
             self.eventSink!(param)
             
         })
+        if let h = handle3 {
+            currentObserverHandles.append(h)
+        }
         
         
         circleQuery?.observeReady {
@@ -204,12 +254,21 @@ public class SwiftGeofirePlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
         
         let location:CLLocation = CLLocation(latitude: CLLocationDegrees(lat), longitude: CLLocationDegrees(lng))
         
-        // Remove all existing observers before setting up new ones
-        circleQuery?.removeAllObservers()
+        // Remove only data query observers if they exist
+        if isDataQuery {
+            for handle in currentObserverHandles {
+                circleQuery?.removeObserver(withFirebaseHandle: handle)
+            }
+        } else {
+            // If switching from event query to data query, remove all
+            circleQuery?.removeAllObservers()
+        }
+        currentObserverHandles.removeAll()
+        isDataQuery = true
         
         circleQuery = geoFire?.query(at: location, withRadius: radius)
         
-        _ = circleQuery?.observeEventType(.keyEntered, with: { (parkingKey, location, snapshot) in
+        let handle1 = circleQuery?.observeEventType(.keyEntered, with: { (parkingKey, location, snapshot) in
             
             var param=[String:Any]()
             
@@ -233,8 +292,11 @@ public class SwiftGeofirePlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
             self.eventSink!(param)
             
         })
+        if let h = handle1 {
+            currentObserverHandles.append(h)
+        }
         
-        _ = circleQuery?.observeEventType(.keyMoved, with: { (parkingKey, location, snapshot) in
+        let handle2 = circleQuery?.observeEventType(.keyMoved, with: { (parkingKey, location, snapshot) in
             
             var param=[String:Any]()
             
@@ -258,8 +320,11 @@ public class SwiftGeofirePlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
             self.eventSink!(param)
             
         })
+        if let h = handle2 {
+            currentObserverHandles.append(h)
+        }
         
-        _ = circleQuery?.observeEventType(.keyExited, with: { (parkingKey, location, snapshot) in
+        let handle3 = circleQuery?.observeEventType(.keyExited, with: { (parkingKey, location, snapshot) in
             
             var param=[String:Any]()
             
@@ -280,6 +345,9 @@ public class SwiftGeofirePlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
             self.eventSink!(param)
             
         })
+        if let h = handle3 {
+            currentObserverHandles.append(h)
+        }
         
         
         circleQuery?.observeReady {
