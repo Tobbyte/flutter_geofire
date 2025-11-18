@@ -132,6 +132,9 @@ public class SwiftGeofirePlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
         
         let location:CLLocation = CLLocation(latitude: CLLocationDegrees(lat), longitude: CLLocationDegrees(lng))
         
+        // Remove all existing observers before setting up new ones
+        circleQuery?.removeAllObservers()
+        
         circleQuery = geoFire?.query(at: location, withRadius: radius)
         
         _ = circleQuery?.observe(.keyEntered, with: { (parkingKey, location) in
@@ -200,6 +203,9 @@ public class SwiftGeofirePlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
         
         
         let location:CLLocation = CLLocation(latitude: CLLocationDegrees(lat), longitude: CLLocationDegrees(lng))
+        
+        // Remove all existing observers before setting up new ones
+        circleQuery?.removeAllObservers()
         
         circleQuery = geoFire?.query(at: location, withRadius: radius)
         

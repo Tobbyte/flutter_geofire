@@ -164,6 +164,7 @@ public class GeofirePlugin implements FlutterPlugin,MethodCallHandler, EventChan
             final ArrayList<String> arrayListKeys = new ArrayList<>();
 
             if (geoQuery != null) {
+                geoQuery.removeAllListeners();
                 geoQuery.setLocation(new GeoLocation(latitude, longitude), radius);
             } else {
                 geoQuery = geoFire.queryAtLocation(new GeoLocation(latitude, longitude), radius);
@@ -266,6 +267,7 @@ public class GeofirePlugin implements FlutterPlugin,MethodCallHandler, EventChan
             final ArrayList<String> arrayListKeys = new ArrayList<>();
 
             if (geoQuery != null) {
+                geoQuery.removeAllListeners();
                 geoQuery.setLocation(new GeoLocation(latitude, longitude), radius);
             } else {
                 geoQuery = geoFire.queryAtLocation(new GeoLocation(latitude, longitude), radius);
