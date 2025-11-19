@@ -43,6 +43,27 @@ public class GeofirePlugin implements FlutterPlugin,MethodCallHandler, EventChan
     private GeoQueryEventListener currentGeoQueryEventListener;
     private GeoQueryDataEventListener currentGeoQueryDataEventListener;
 
+    // Helper to remove listeners defensively (GeoFire throws if the listener wasn't added)
+    private void safeRemoveGeoQueryEventListener(GeoQueryEventListener listener) {
+        if (geoQuery != null && listener != null) {
+            try {
+                geoQuery.removeGeoQueryEventListener(listener);
+            } catch (IllegalArgumentException e) {
+                Log.d("GeofirePlugin", "Listener already removed: " + e.getMessage());
+            }
+        }
+    }
+
+    private void safeRemoveGeoQueryDataEventListener(GeoQueryDataEventListener listener) {
+        if (geoQuery != null && listener != null) {
+            try {
+                geoQuery.removeGeoQueryEventListener(listener);
+            } catch (IllegalArgumentException e) {
+                Log.d("GeofirePlugin", "Data listener already removed: " + e.getMessage());
+            }
+        }
+    }
+
     /**
      * Plugin registration.
      */
@@ -148,7 +169,11 @@ public class GeofirePlugin implements FlutterPlugin,MethodCallHandler, EventChan
         } else if (call.method.equals("stopListener")) {
 
             if (geoQuery != null) {
-                geoQuery.removeAllListeners();
+                try {
+                    geoQuery.removeAllListeners();
+                } catch (Exception e) {
+                    // defensive – ignore
+                }
                 currentGeoQueryEventListener = null;
                 currentGeoQueryDataEventListener = null;
             }
@@ -157,7 +182,7 @@ public class GeofirePlugin implements FlutterPlugin,MethodCallHandler, EventChan
         } else if (call.method.equals("removeGeoQueryEventListener")) {
 
             if (geoQuery != null && currentGeoQueryEventListener != null) {
-                geoQuery.removeGeoQueryEventListener(currentGeoQueryEventListener);
+                safeRemoveGeoQueryEventListener(currentGeoQueryEventListener);
                 currentGeoQueryEventListener = null;
             }
 
@@ -165,7 +190,7 @@ public class GeofirePlugin implements FlutterPlugin,MethodCallHandler, EventChan
         } else if (call.method.equals("removeGeoQueryDataEventListener")) {
 
             if (geoQuery != null && currentGeoQueryDataEventListener != null) {
-                geoQuery.removeGeoQueryEventListener(currentGeoQueryDataEventListener);
+                safeRemoveGeoQueryDataEventListener(currentGeoQueryDataEventListener);
                 currentGeoQueryDataEventListener = null;
             }
 
@@ -188,7 +213,7 @@ public class GeofirePlugin implements FlutterPlugin,MethodCallHandler, EventChan
             if (geoQuery != null) {
                 // Remove only the current event listener, not data listener
                 if (currentGeoQueryEventListener != null) {
-                    geoQuery.removeGeoQueryEventListener(currentGeoQueryEventListener);
+                    safeRemoveGeoQueryEventListener(currentGeoQueryEventListener);
                     currentGeoQueryEventListener = null;
                 }
                 geoQuery.setLocation(new GeoLocation(latitude, longitude), radius);
@@ -209,7 +234,7 @@ public class GeofirePlugin implements FlutterPlugin,MethodCallHandler, EventChan
                         events.success(hashMap);
                     } else {
                         if (currentGeoQueryEventListener != null) {
-                            geoQuery.removeGeoQueryEventListener(currentGeoQueryEventListener);
+                            safeRemoveGeoQueryEventListener(currentGeoQueryEventListener);
                             currentGeoQueryEventListener = null;
                         }
                     }
@@ -230,7 +255,7 @@ public class GeofirePlugin implements FlutterPlugin,MethodCallHandler, EventChan
                         events.success(hashMap);
                     } else {
                         if (currentGeoQueryEventListener != null) {
-                            geoQuery.removeGeoQueryEventListener(currentGeoQueryEventListener);
+                            safeRemoveGeoQueryEventListener(currentGeoQueryEventListener);
                             currentGeoQueryEventListener = null;
                         }
                     }
@@ -251,7 +276,7 @@ public class GeofirePlugin implements FlutterPlugin,MethodCallHandler, EventChan
                         events.success(hashMap);
                     } else {
                         if (currentGeoQueryEventListener != null) {
-                            geoQuery.removeGeoQueryEventListener(currentGeoQueryEventListener);
+                            safeRemoveGeoQueryEventListener(currentGeoQueryEventListener);
                             currentGeoQueryEventListener = null;
                         }
                     }
@@ -273,7 +298,7 @@ public class GeofirePlugin implements FlutterPlugin,MethodCallHandler, EventChan
 
                     } else {
                         if (currentGeoQueryEventListener != null) {
-                            geoQuery.removeGeoQueryEventListener(currentGeoQueryEventListener);
+                            safeRemoveGeoQueryEventListener(currentGeoQueryEventListener);
                             currentGeoQueryEventListener = null;
                         }
                     }
@@ -288,9 +313,10 @@ public class GeofirePlugin implements FlutterPlugin,MethodCallHandler, EventChan
                         events.error("Error ", "GeoQueryError", error);
                     } else {
                         if (currentGeoQueryEventListener != null) {
-                            geoQuery.removeGeoQueryEventListener(currentGeoQueryEventListener);
+                            safeRemoveGeoQueryEventListener(currentGeoQueryEventListener);
                             currentGeoQueryEventListener = null;
                         }
+                    }
                     }
 
 
@@ -312,7 +338,7 @@ public class GeofirePlugin implements FlutterPlugin,MethodCallHandler, EventChan
             if (geoQuery != null) {
                 // Remove only the current data listener, not event listener
                 if (currentGeoQueryDataEventListener != null) {
-                    geoQuery.removeGeoQueryEventListener(currentGeoQueryDataEventListener);
+                    safeRemoveGeoQueryDataEventListener(currentGeoQueryDataEventListener);
                     currentGeoQueryDataEventListener = null;
                 }
                 geoQuery.setLocation(new GeoLocation(latitude, longitude), radius);
@@ -350,7 +376,7 @@ public class GeofirePlugin implements FlutterPlugin,MethodCallHandler, EventChan
                         events.success(hashMap);
                     } else {
                         if (currentGeoQueryDataEventListener != null) {
-                            geoQuery.removeGeoQueryEventListener(currentGeoQueryDataEventListener);
+                            safeRemoveGeoQueryDataEventListener(currentGeoQueryDataEventListener);
                             currentGeoQueryDataEventListener = null;
                         }
                     }
@@ -388,7 +414,7 @@ public class GeofirePlugin implements FlutterPlugin,MethodCallHandler, EventChan
                         events.success(hashMap);
                     } else {
                         if (currentGeoQueryDataEventListener != null) {
-                            geoQuery.removeGeoQueryEventListener(currentGeoQueryDataEventListener);
+                            safeRemoveGeoQueryDataEventListener(currentGeoQueryDataEventListener);
                             currentGeoQueryDataEventListener = null;
                         }
                     }
@@ -425,7 +451,7 @@ public class GeofirePlugin implements FlutterPlugin,MethodCallHandler, EventChan
                         events.success(hashMap);
                     } else {
                         if (currentGeoQueryDataEventListener != null) {
-                            geoQuery.removeGeoQueryEventListener(currentGeoQueryDataEventListener);
+                            safeRemoveGeoQueryDataEventListener(currentGeoQueryDataEventListener);
                             currentGeoQueryDataEventListener = null;
                         }
                     }
@@ -462,7 +488,7 @@ public class GeofirePlugin implements FlutterPlugin,MethodCallHandler, EventChan
                         events.success(hashMap);
                     } else {
                         if (currentGeoQueryDataEventListener != null) {
-                            geoQuery.removeGeoQueryEventListener(currentGeoQueryDataEventListener);
+                            safeRemoveGeoQueryDataEventListener(currentGeoQueryDataEventListener);
                             currentGeoQueryDataEventListener = null;
                         }
                     }
@@ -481,7 +507,7 @@ public class GeofirePlugin implements FlutterPlugin,MethodCallHandler, EventChan
 
                     } else {
                         if (currentGeoQueryDataEventListener != null) {
-                            geoQuery.removeGeoQueryEventListener(currentGeoQueryDataEventListener);
+                            safeRemoveGeoQueryDataEventListener(currentGeoQueryDataEventListener);
                             currentGeoQueryDataEventListener = null;
                         }
                     }
@@ -496,7 +522,7 @@ public class GeofirePlugin implements FlutterPlugin,MethodCallHandler, EventChan
                         events.error("Error ", "GeoQueryError", error);
                     } else {
                         if (currentGeoQueryDataEventListener != null) {
-                            geoQuery.removeGeoQueryEventListener(currentGeoQueryDataEventListener);
+                            safeRemoveGeoQueryDataEventListener(currentGeoQueryDataEventListener);
                             currentGeoQueryDataEventListener = null;
                         }
                     }
@@ -520,7 +546,15 @@ public class GeofirePlugin implements FlutterPlugin,MethodCallHandler, EventChan
     @Override
     public void onCancel(Object o) {
 
-        geoQuery.removeAllListeners();
+        if (geoQuery != null) {
+            try {
+                geoQuery.removeAllListeners();
+            } catch (Exception e) {
+                // defensive – ignore
+            }
+            currentGeoQueryEventListener = null;
+            currentGeoQueryDataEventListener = null;
+        }
         events = null;
 
     }

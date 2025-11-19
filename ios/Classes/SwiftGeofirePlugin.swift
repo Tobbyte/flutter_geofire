@@ -371,7 +371,13 @@ public class SwiftGeofirePlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
   }
 
   public func onCancel(withArguments arguments: Any?) -> FlutterError? {
-      eventSink = nil
+            // Remove any observers that may still be attached and clear state
+            if let q = circleQuery {
+                q.removeAllObservers()
+            }
+            currentObserverHandles.removeAll()
+            isDataQuery = false
+            eventSink = nil
       return nil
     }
 
