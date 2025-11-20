@@ -2,7 +2,6 @@ package in.appyflow.geofire;
 
 import android.util.Log;
 
-
 import androidx.annotation.NonNull;
 
 import com.firebase.geofire.GeoFire;
@@ -19,7 +18,6 @@ import com.google.firebase.database.FirebaseDatabase;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
 import io.flutter.plugin.common.BinaryMessenger;
 import io.flutter.plugin.common.EventChannel;
@@ -31,25 +29,31 @@ import io.flutter.plugin.common.MethodChannel.Result;
 /**
  * GeofirePlugin
  */
-public class GeofirePlugin implements FlutterPlugin,MethodCallHandler, EventChannel.StreamHandler {
+public class GeofirePlugin implements FlutterPlugin, MethodCallHandler, EventChannel.StreamHandler {
 
-    GeoFire geoFire;
-    DatabaseReference databaseReference;
-    static MethodChannel channel;
-    static EventChannel eventChannel;
+    private static final String TAG = "GeofirePlugin";
+
+    private GeoFire geoFire;
+    private DatabaseReference databaseReference;
+    private MethodChannel channel;
+    private EventChannel eventChannel;
     private EventChannel.EventSink events;
-    
+
+    private GeoQuery geoQuery;
+    private HashMap<String, Object> hashMap = new HashMap<>();
+
     // Store listener references for selective removal
     private GeoQueryEventListener currentGeoQueryEventListener;
     private GeoQueryDataEventListener currentGeoQueryDataEventListener;
 
-    // Helper to remove listeners defensively (GeoFire throws if the listener wasn't added)
+    // Helper to remove listeners defensively (GeoFire throws if the listener wasn't
+    // added)
     private void safeRemoveGeoQueryEventListener(GeoQueryEventListener listener) {
         if (geoQuery != null && listener != null) {
             try {
                 geoQuery.removeGeoQueryEventListener(listener);
             } catch (IllegalArgumentException e) {
-                Log.d("GeofirePlugin", "Listener already removed: " + e.getMessage());
+                Log.d(TAG, "Listener already removed: " + e.getMessage());
             }
         }
     }
@@ -59,96 +63,133 @@ public class GeofirePlugin implements FlutterPlugin,MethodCallHandler, EventChan
             try {
                 geoQuery.removeGeoQueryEventListener(listener);
             } catch (IllegalArgumentException e) {
-                Log.d("GeofirePlugin", "Data listener already removed: " + e.getMessage());
+                Log.d(TAG, "Data listener already removed: " + e.getMessage());
             }
         }
     }
 
-    /**
-     * Plugin registration.
-     */
+    private void teardown() {
+        Log.d(TAG, "Teardown called");
+        if (geoQuery != null) {
+            try {
+                geoQuery.removeAllListeners();
+            } catch (Exception e) {
+                // defensive – ignore
+            }
+            geoQuery = null;
+        }
+        currentGeoQueryEventListener = null;
+        currentGeoQueryDataEventListener = null;
 
-    public static void pluginInit(BinaryMessenger messenger){
-        GeofirePlugin geofirePlugin = new GeofirePlugin();
-
-        channel = new MethodChannel(messenger, "geofire");
-        channel.setMethodCallHandler(geofirePlugin);
-
-        eventChannel = new EventChannel(messenger, "geofireStream");
-        eventChannel.setStreamHandler(geofirePlugin);
-
+        if (channel != null) {
+            channel.setMethodCallHandler(null);
+            channel = null;
+        }
+        if (eventChannel != null) {
+            eventChannel.setStreamHandler(null);
+            eventChannel = null;
+        }
+        events = null;
     }
 
-//    public static void registerWith(Registrar registrar) {
-//        pluginInit(registrar.messenger());
-//    }
+    private void setupChannel(BinaryMessenger messenger) {
+        channel = new MethodChannel(messenger, "geofire");
+        channel.setMethodCallHandler(this);
+
+        eventChannel = new EventChannel(messenger, "geofireStream");
+        eventChannel.setStreamHandler(this);
+    }
 
     @Override
-    public void onMethodCall(MethodCall call, final Result result) {
+    public void onAttachedToEngine(@NonNull FlutterPluginBinding binding) {
+        setupChannel(binding.getBinaryMessenger());
+    }
 
-        Log.i("TAG", call.method.toString());
+    @Override
+    public void onDetachedFromEngine(@NonNull FlutterPluginBinding binding) {
+        teardown();
+    }
+
+    @Override
+    public void onMethodCall(@NonNull MethodCall call, @NonNull final Result result) {
+        // Log.i(TAG, call.method);
 
         if (call.method.equals("GeoFire.start")) {
+            // Ensure we start fresh
+            if (geoQuery != null) {
+                try {
+                    geoQuery.removeAllListeners();
+                } catch (Exception e) {
+                    // ignore
+                }
+                geoQuery = null;
+            }
+            currentGeoQueryEventListener = null;
+            currentGeoQueryDataEventListener = null;
 
-            databaseReference = FirebaseDatabase.getInstance().getReference(call.argument("path").toString());
+            String path = call.argument("path");
+            if (path == null) {
+                result.error("INVALID_PATH", "Path cannot be null", null);
+                return;
+            }
+
+            databaseReference = FirebaseDatabase.getInstance().getReference(path);
             geoFire = new GeoFire(databaseReference);
 
             if (geoFire.getDatabaseReference() != null) {
                 result.success(true);
-            } else
+            } else {
                 result.success(false);
+            }
         } else if (call.method.equals("setLocation")) {
-
-            geoFire.setLocation(call.argument("id").toString(), new GeoLocation(Double.parseDouble(call.argument("lat").toString()), Double.parseDouble(call.argument("lng").toString())), new GeoFire.CompletionListener() {
-                @Override
-                public void onComplete(String key, DatabaseError error) {
-
-                    if (error != null) {
-                        result.success(false);
-                    } else {
-                        result.success(true);
-                    }
-
-                }
-            });
-
-
+            if (geoFire == null) {
+                result.error("NO_GEOFIRE", "GeoFire not initialized. Call GeoFire.start first.", null);
+                return;
+            }
+            geoFire.setLocation(call.argument("id").toString(),
+                    new GeoLocation(Double.parseDouble(call.argument("lat").toString()),
+                            Double.parseDouble(call.argument("lng").toString())),
+                    new GeoFire.CompletionListener() {
+                        @Override
+                        public void onComplete(String key, DatabaseError error) {
+                            if (error != null) {
+                                result.success(false);
+                            } else {
+                                result.success(true);
+                            }
+                        }
+                    });
         } else if (call.method.equals("removeLocation")) {
-
+            if (geoFire == null) {
+                result.error("NO_GEOFIRE", "GeoFire not initialized. Call GeoFire.start first.", null);
+                return;
+            }
             geoFire.removeLocation(call.argument("id").toString(), new GeoFire.CompletionListener() {
                 @Override
                 public void onComplete(String key, DatabaseError error) {
-
                     if (error != null) {
                         result.success(false);
                     } else {
                         result.success(true);
                     }
-
                 }
             });
-
-
         } else if (call.method.equals("getLocation")) {
-
+            if (geoFire == null) {
+                result.error("NO_GEOFIRE", "GeoFire not initialized. Call GeoFire.start first.", null);
+                return;
+            }
             geoFire.getLocation(call.argument("id").toString(), new LocationCallback() {
                 @Override
                 public void onLocationResult(String key, GeoLocation location) {
                     HashMap<String, Object> map = new HashMap<>();
                     if (location != null) {
-
-
                         map.put("lat", location.latitude);
                         map.put("lng", location.longitude);
                         map.put("error", null);
-
                     } else {
-
-
                         map.put("error", String.format("There is no location for key %s in GeoFire", key));
-
                     }
-
                     result.success(map);
                 }
 
@@ -156,18 +197,26 @@ public class GeofirePlugin implements FlutterPlugin,MethodCallHandler, EventChan
                 public void onCancelled(DatabaseError databaseError) {
                     HashMap<String, Object> map = new HashMap<>();
                     map.put("error", "There was an error getting the GeoFire location: " + databaseError);
-
                     result.success(map);
                 }
             });
-
-
         } else if (call.method.equals("queryAtLocation")) {
-            geoFireArea(Double.parseDouble(call.argument("lat").toString()), Double.parseDouble(call.argument("lng").toString()), result, Double.parseDouble(call.argument("radius").toString()));
+            if (geoFire == null) {
+                result.error("NO_GEOFIRE", "GeoFire not initialized. Call GeoFire.start first.", null);
+                return;
+            }
+            geoFireArea(Double.parseDouble(call.argument("lat").toString()),
+                    Double.parseDouble(call.argument("lng").toString()), result,
+                    Double.parseDouble(call.argument("radius").toString()));
         } else if (call.method.equals("queryAtLocationWithData")) {
-            geoFireAreaWithData(Double.parseDouble(call.argument("lat").toString()), Double.parseDouble(call.argument("lng").toString()), result, Double.parseDouble(call.argument("radius").toString()));
+            if (geoFire == null) {
+                result.error("NO_GEOFIRE", "GeoFire not initialized. Call GeoFire.start first.", null);
+                return;
+            }
+            geoFireAreaWithData(Double.parseDouble(call.argument("lat").toString()),
+                    Double.parseDouble(call.argument("lng").toString()), result,
+                    Double.parseDouble(call.argument("radius").toString()));
         } else if (call.method.equals("stopListener")) {
-
             if (geoQuery != null) {
                 try {
                     geoQuery.removeAllListeners();
@@ -177,37 +226,26 @@ public class GeofirePlugin implements FlutterPlugin,MethodCallHandler, EventChan
                 currentGeoQueryEventListener = null;
                 currentGeoQueryDataEventListener = null;
             }
-
             result.success(true);
         } else if (call.method.equals("removeGeoQueryEventListener")) {
-
             if (geoQuery != null && currentGeoQueryEventListener != null) {
                 safeRemoveGeoQueryEventListener(currentGeoQueryEventListener);
                 currentGeoQueryEventListener = null;
             }
-
             result.success(true);
         } else if (call.method.equals("removeGeoQueryDataEventListener")) {
-
             if (geoQuery != null && currentGeoQueryDataEventListener != null) {
                 safeRemoveGeoQueryDataEventListener(currentGeoQueryDataEventListener);
                 currentGeoQueryDataEventListener = null;
             }
-
             result.success(true);
         } else {
             result.notImplemented();
         }
     }
 
-    GeoQuery geoQuery;
-
-    HashMap<String, Object> hashMap = new HashMap<>();
-
-
     private void geoFireArea(final double latitude, double longitude, final Result result, double radius) {
         try {
-
             final ArrayList<String> arrayListKeys = new ArrayList<>();
 
             if (geoQuery != null) {
@@ -224,7 +262,6 @@ public class GeofirePlugin implements FlutterPlugin,MethodCallHandler, EventChan
             currentGeoQueryEventListener = new GeoQueryEventListener() {
                 @Override
                 public void onKeyEntered(String key, GeoLocation location) {
-
                     if (events != null) {
                         hashMap.clear();
                         hashMap.put("callBack", "onKeyEntered");
@@ -232,97 +269,51 @@ public class GeofirePlugin implements FlutterPlugin,MethodCallHandler, EventChan
                         hashMap.put("latitude", location.latitude);
                         hashMap.put("longitude", location.longitude);
                         events.success(hashMap);
-                    } else {
-                        if (currentGeoQueryEventListener != null) {
-                            safeRemoveGeoQueryEventListener(currentGeoQueryEventListener);
-                            currentGeoQueryEventListener = null;
-                        }
                     }
-
                     arrayListKeys.add(key);
-
                 }
 
                 @Override
                 public void onKeyExited(String key) {
                     arrayListKeys.remove(key);
-
                     if (events != null) {
-
                         hashMap.clear();
                         hashMap.put("callBack", "onKeyExited");
                         hashMap.put("key", key);
                         events.success(hashMap);
-                    } else {
-                        if (currentGeoQueryEventListener != null) {
-                            safeRemoveGeoQueryEventListener(currentGeoQueryEventListener);
-                            currentGeoQueryEventListener = null;
-                        }
                     }
-
                 }
 
                 @Override
                 public void onKeyMoved(String key, GeoLocation location) {
-
                     if (events != null) {
                         hashMap.clear();
-
                         hashMap.put("callBack", "onKeyMoved");
                         hashMap.put("key", key);
                         hashMap.put("latitude", location.latitude);
                         hashMap.put("longitude", location.longitude);
-
                         events.success(hashMap);
-                    } else {
-                        if (currentGeoQueryEventListener != null) {
-                            safeRemoveGeoQueryEventListener(currentGeoQueryEventListener);
-                            currentGeoQueryEventListener = null;
-                        }
                     }
-
                 }
 
                 @Override
                 public void onGeoQueryReady() {
-//                    geoQuery.removeAllListeners();
-//                    result.success(arrayListKeys);
-
                     if (events != null) {
                         hashMap.clear();
-
                         hashMap.put("callBack", "onGeoQueryReady");
                         hashMap.put("result", arrayListKeys);
-
                         events.success(hashMap);
-
-                    } else {
-                        if (currentGeoQueryEventListener != null) {
-                            safeRemoveGeoQueryEventListener(currentGeoQueryEventListener);
-                            currentGeoQueryEventListener = null;
-                        }
                     }
-
                 }
 
                 @Override
                 public void onGeoQueryError(DatabaseError error) {
-
                     if (events != null) {
-
                         events.error("Error ", "GeoQueryError", error);
-                    } else {
-                        if (currentGeoQueryEventListener != null) {
-                            safeRemoveGeoQueryEventListener(currentGeoQueryEventListener);
-                            currentGeoQueryEventListener = null;
-                        }
                     }
-                    }
-
-
                 }
             };
-            
+
             geoQuery.addGeoQueryEventListener(currentGeoQueryEventListener);
         } catch (Exception e) {
             e.printStackTrace();
@@ -332,7 +323,6 @@ public class GeofirePlugin implements FlutterPlugin,MethodCallHandler, EventChan
 
     private void geoFireAreaWithData(final double latitude, double longitude, final Result result, double radius) {
         try {
-
             final ArrayList<String> arrayListKeys = new ArrayList<>();
 
             if (geoQuery != null) {
@@ -349,14 +339,13 @@ public class GeofirePlugin implements FlutterPlugin,MethodCallHandler, EventChan
             currentGeoQueryDataEventListener = new GeoQueryDataEventListener() {
                 @Override
                 public void onDataEntered(DataSnapshot dataSnapshot, GeoLocation location) {
-
                     if (events != null) {
                         hashMap.clear();
                         hashMap.put("callBack", "onDataKeyEntered");
                         hashMap.put("key", dataSnapshot.getKey());
                         hashMap.put("latitude", location.latitude);
                         hashMap.put("longitude", location.longitude);
-                        
+
                         // Convert DataSnapshot to HashMap
                         HashMap<String, Object> dataMap = new HashMap<>();
                         if (dataSnapshot.getValue() != null) {
@@ -372,29 +361,19 @@ public class GeofirePlugin implements FlutterPlugin,MethodCallHandler, EventChan
                             }
                         }
                         hashMap.put("data", dataMap);
-                        
                         events.success(hashMap);
-                    } else {
-                        if (currentGeoQueryDataEventListener != null) {
-                            safeRemoveGeoQueryDataEventListener(currentGeoQueryDataEventListener);
-                            currentGeoQueryDataEventListener = null;
-                        }
                     }
-
                     arrayListKeys.add(dataSnapshot.getKey());
-
                 }
 
                 @Override
                 public void onDataExited(DataSnapshot dataSnapshot) {
                     arrayListKeys.remove(dataSnapshot.getKey());
-
                     if (events != null) {
-
                         hashMap.clear();
                         hashMap.put("callBack", "onDataKeyExited");
                         hashMap.put("key", dataSnapshot.getKey());
-                        
+
                         // Convert DataSnapshot to HashMap
                         HashMap<String, Object> dataMap = new HashMap<>();
                         if (dataSnapshot.getValue() != null) {
@@ -410,23 +389,14 @@ public class GeofirePlugin implements FlutterPlugin,MethodCallHandler, EventChan
                             }
                         }
                         hashMap.put("data", dataMap);
-                        
                         events.success(hashMap);
-                    } else {
-                        if (currentGeoQueryDataEventListener != null) {
-                            safeRemoveGeoQueryDataEventListener(currentGeoQueryDataEventListener);
-                            currentGeoQueryDataEventListener = null;
-                        }
                     }
-
                 }
 
                 @Override
                 public void onDataMoved(DataSnapshot dataSnapshot, GeoLocation location) {
-
                     if (events != null) {
                         hashMap.clear();
-
                         hashMap.put("callBack", "onDataKeyMoved");
                         hashMap.put("key", dataSnapshot.getKey());
                         hashMap.put("latitude", location.latitude);
@@ -447,23 +417,14 @@ public class GeofirePlugin implements FlutterPlugin,MethodCallHandler, EventChan
                             }
                         }
                         hashMap.put("data", dataMap);
-
                         events.success(hashMap);
-                    } else {
-                        if (currentGeoQueryDataEventListener != null) {
-                            safeRemoveGeoQueryDataEventListener(currentGeoQueryDataEventListener);
-                            currentGeoQueryDataEventListener = null;
-                        }
                     }
-
                 }
 
                 @Override
                 public void onDataChanged(DataSnapshot dataSnapshot, GeoLocation location) {
-                    // Called when the data at a location has changed
                     if (events != null) {
                         hashMap.clear();
-
                         hashMap.put("callBack", "onDataKeyChanged");
                         hashMap.put("key", dataSnapshot.getKey());
                         hashMap.put("latitude", location.latitude);
@@ -484,53 +445,28 @@ public class GeofirePlugin implements FlutterPlugin,MethodCallHandler, EventChan
                             }
                         }
                         hashMap.put("data", dataMap);
-
                         events.success(hashMap);
-                    } else {
-                        if (currentGeoQueryDataEventListener != null) {
-                            safeRemoveGeoQueryDataEventListener(currentGeoQueryDataEventListener);
-                            currentGeoQueryDataEventListener = null;
-                        }
                     }
                 }
 
                 @Override
                 public void onGeoQueryReady() {
-
                     if (events != null) {
                         hashMap.clear();
-
                         hashMap.put("callBack", "onGeoQueryReady");
                         hashMap.put("result", arrayListKeys);
-
                         events.success(hashMap);
-
-                    } else {
-                        if (currentGeoQueryDataEventListener != null) {
-                            safeRemoveGeoQueryDataEventListener(currentGeoQueryDataEventListener);
-                            currentGeoQueryDataEventListener = null;
-                        }
                     }
-
                 }
 
                 @Override
                 public void onGeoQueryError(DatabaseError error) {
-
                     if (events != null) {
-
                         events.error("Error ", "GeoQueryError", error);
-                    } else {
-                        if (currentGeoQueryDataEventListener != null) {
-                            safeRemoveGeoQueryDataEventListener(currentGeoQueryDataEventListener);
-                            currentGeoQueryDataEventListener = null;
-                        }
                     }
-
-
                 }
             };
-            
+
             geoQuery.addGeoQueryDataEventListener(currentGeoQueryDataEventListener);
         } catch (Exception e) {
             e.printStackTrace();
@@ -545,28 +481,19 @@ public class GeofirePlugin implements FlutterPlugin,MethodCallHandler, EventChan
 
     @Override
     public void onCancel(Object o) {
+        // When the stream is cancelled (e.g. widget disposed), we should probably stop
+        // the query
+        // But the original code only cleared the event sink.
+        // To be safe and fix the "old state" issue, we should probably clear listeners
+        // if the stream is cancelled.
+        // However, the user might want to keep the query running?
+        // The prompt says "it doesnt trigger new queries. somehow it keeps an old
+        // state."
+        // So aggressive cleanup is better.
 
-        if (geoQuery != null) {
-            try {
-                geoQuery.removeAllListeners();
-            } catch (Exception e) {
-                // defensive – ignore
-            }
-            currentGeoQueryEventListener = null;
-            currentGeoQueryDataEventListener = null;
-        }
+        // Actually, onCancel is called when the Dart side cancels the stream
+        // subscription.
+        // If we rely on the stream for updates, we should stop sending updates.
         events = null;
-
-    }
-
-    @Override
-    public void onAttachedToEngine(@NonNull FlutterPluginBinding binding) {
-        pluginInit(binding.getBinaryMessenger());
-    }
-
-    @Override
-    public void onDetachedFromEngine(@NonNull FlutterPluginBinding binding) {
-        channel.setMethodCallHandler(null);
-        eventChannel.setStreamHandler(null);
     }
 }
