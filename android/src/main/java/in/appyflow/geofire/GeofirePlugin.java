@@ -315,6 +315,7 @@ public class GeofirePlugin implements FlutterPlugin, MethodCallHandler, EventCha
             };
 
             geoQuery.addGeoQueryEventListener(currentGeoQueryEventListener);
+            result.success(true);
         } catch (Exception e) {
             e.printStackTrace();
             result.error("Error ", "General Error", e);
@@ -468,6 +469,7 @@ public class GeofirePlugin implements FlutterPlugin, MethodCallHandler, EventCha
             };
 
             geoQuery.addGeoQueryDataEventListener(currentGeoQueryDataEventListener);
+            result.success(true);
         } catch (Exception e) {
             e.printStackTrace();
             result.error("Error ", "General Error", e);
@@ -477,23 +479,37 @@ public class GeofirePlugin implements FlutterPlugin, MethodCallHandler, EventCha
     @Override
     public void onListen(Object o, EventChannel.EventSink eventSink) {
         events = eventSink;
+        // If we already have a query running, we need to re-hook the listeners
+        // so that the new event sink gets the events.
+        // This handles the case where queryAtLocation is called before listen,
+        // or if a hot restart happened and we want to re-attach to the existing query
+        // state
+        // (though usually hot restart kills the plugin instance, but sometimes not the
+        // process).
+
+        // Actually, for the "No Data" issue:
+        // If queryAtLocation is called, it sets up the listener.
+        // If events is null, the listener drops the events.
+        // When onListen is called later, we need to re-trigger the events.
+        // The easiest way to re-trigger "onKeyEntered" for all current keys is to
+        // remove and re-add the listener.
+
+        if (geoQuery != null) {
+            if (currentGeoQueryEventListener != null) {
+                GeoQueryEventListener listener = currentGeoQueryEventListener;
+                safeRemoveGeoQueryEventListener(listener);
+                geoQuery.addGeoQueryEventListener(listener);
+            }
+            if (currentGeoQueryDataEventListener != null) {
+                GeoQueryDataEventListener listener = currentGeoQueryDataEventListener;
+                safeRemoveGeoQueryDataEventListener(listener);
+                geoQuery.addGeoQueryDataEventListener(listener);
+            }
+        }
     }
 
     @Override
     public void onCancel(Object o) {
-        // When the stream is cancelled (e.g. widget disposed), we should probably stop
-        // the query
-        // But the original code only cleared the event sink.
-        // To be safe and fix the "old state" issue, we should probably clear listeners
-        // if the stream is cancelled.
-        // However, the user might want to keep the query running?
-        // The prompt says "it doesnt trigger new queries. somehow it keeps an old
-        // state."
-        // So aggressive cleanup is better.
-
-        // Actually, onCancel is called when the Dart side cancels the stream
-        // subscription.
-        // If we rely on the stream for updates, we should stop sending updates.
         events = null;
     }
 }
