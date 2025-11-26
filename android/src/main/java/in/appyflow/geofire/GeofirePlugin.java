@@ -10,6 +10,7 @@ import com.firebase.geofire.GeoQuery;
 import com.firebase.geofire.GeoQueryEventListener;
 import com.firebase.geofire.GeoQueryDataEventListener;
 import com.firebase.geofire.LocationCallback;
+import com.firebase.geofire.core.GeoHash;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
@@ -239,6 +240,14 @@ public class GeofirePlugin implements FlutterPlugin, MethodCallHandler, EventCha
                 currentGeoQueryDataEventListener = null;
             }
             result.success(true);
+        } else if (call.method.equals("getLocationHash")) {
+            double lat = Double.parseDouble(call.argument("lat").toString());
+            double lng = Double.parseDouble(call.argument("lng").toString());
+            int precision = call.argument("precision") != null 
+                ? Integer.parseInt(call.argument("precision").toString()) 
+                : 10;
+            GeoHash geoHash = new GeoHash(lat, lng, precision);
+            result.success(geoHash.getGeoHashString());
         } else {
             result.notImplemented();
         }

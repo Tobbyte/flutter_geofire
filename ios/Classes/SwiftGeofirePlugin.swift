@@ -244,6 +244,18 @@ public class SwiftGeofirePlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
         }
     }
     
+    if(call.method.elementsEqual("getLocationHash")){
+        
+        let lat = arguements!["lat"] as! Double
+        let lng = arguements!["lng"] as! Double
+        let precision = arguements?["precision"] as? UInt ?? 10
+        
+        let location = CLLocation(latitude: lat, longitude: lng)
+        let hash = GFGeoHash(location: location.coordinate, precision: precision)
+        
+        result(hash?.geoHashValue)
+    }
+    
     if(call.method.elementsEqual("queryAtLocationWithData")){
         
         

@@ -11,7 +11,7 @@ class Geofire {
   static const onGeoQueryReady = "onGeoQueryReady";
   static const onKeyMoved = "onKeyMoved";
   static const onKeyExited = "onKeyExited";
-  
+
   // Data event callbacks - includes full data snapshot
   static const onDataKeyEntered = "onDataKeyEntered";
   static const onDataKeyMoved = "onDataKeyMoved";
@@ -101,5 +101,21 @@ class Geofire {
       _queryAtLocationWithData = _stream.receiveBroadcastStream();
     }
     return _queryAtLocationWithData;
+  }
+
+  /// Returns the geohash string for the given coordinates.
+  ///
+  /// [latitude] The latitude of the location.
+  /// [longitude] The longitude of the location.
+  /// [precision] The precision of the geohash (1-22). Default is 10.
+  static Future<String?> getLocationHash(double latitude, double longitude,
+      {int precision = 10}) async {
+    final String? hash = await _channel.invokeMethod(
+        'getLocationHash', <String, dynamic>{
+      "lat": latitude,
+      "lng": longitude,
+      "precision": precision
+    });
+    return hash;
   }
 }
