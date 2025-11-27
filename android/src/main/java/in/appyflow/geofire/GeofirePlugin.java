@@ -299,33 +299,24 @@ public class GeofirePlugin implements FlutterPlugin, MethodCallHandler, EventCha
 
     @Override
     public void onListen(Object o, EventChannel.EventSink eventSink) {
+        // Track if this is a reconnection (hot restart) vs initial connection
+        boolean isReconnection = (events != null);
         events = eventSink;
-        // If we already have a query running, we need to re-hook the listeners
-        // so that the new event sink gets the events.
-        // This handles the case where queryAtLocation is called before listen,
-        // or if a hot restart happened and we want to re-attach to the existing query
-        // state
-        // (though usually hot restart kills the plugin instance, but sometimes not the
-        // process).
-
-        // Actually, for the "No Data" issue:
-        // If queryAtLocation is called, it sets up the listener.
-        // If events is null, the listener drops the events.
-        // When onListen is called later, we need to re-trigger the events.
-        // The easiest way to re-trigger "onKeyEntered" for all current keys is to
-        // remove and re-add the listener.
-
-        if (geoQuery != null) {
+        
+        // Only re-hook listeners on hot restart reconnection.
+        // On initial connection, listeners are already attached by queryAtLocation().
+        // Re-adding them here would cause duplicate onGeoQueryReady events.
+        if (isReconnection && geoQuery != null) {
             if (currentGeoQueryEventListener != null) {
                 PluginGeoQueryEventListener listener = currentGeoQueryEventListener;
                 safeRemoveGeoQueryEventListener(listener);
-                listener.reset(); // Clear accumulated keys to avoid duplicates
+                listener.reset();
                 geoQuery.addGeoQueryEventListener(listener);
             }
             if (currentGeoQueryDataEventListener != null) {
                 PluginGeoQueryDataEventListener listener = currentGeoQueryDataEventListener;
                 safeRemoveGeoQueryDataEventListener(listener);
-                listener.reset(); // Clear accumulated keys to avoid duplicates
+                listener.reset();
                 geoQuery.addGeoQueryDataEventListener(listener);
             }
         }
